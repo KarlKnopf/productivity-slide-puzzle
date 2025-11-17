@@ -66,7 +66,7 @@
 <body>
 
 <div id="controls">
-  <input type="file" id="imageInput" accept="image/*">
+  <input type="file" id="imageInput" accept="image/*" multiple>
   <select id="difficultySelect">
     <option value="4">Normal (4x4)</option>
     <option value="5">Hard (5x5)</option>
@@ -86,7 +86,8 @@ let movesLeft = parseInt(localStorage.getItem('movesLeft')) || 0;
 let carryoverMoves = parseInt(localStorage.getItem('carryoverMoves')) || 0;
 let puzzle = [];
 let emptyPos = {x: PUZZLE_SIZE-1, y: PUZZLE_SIZE-1};
-let img = null;
+let images = JSON.parse(localStorage.getItem('images')) || [];
+let currentImageIndex = parseInt(localStorage.getItem('currentImageIndex')) || 0;
 let timer = 25 * 60;
 let timerInterval;
 let puzzlesSolved = parseInt(localStorage.getItem('puzzlesSolved')) || 0;
@@ -102,14 +103,19 @@ const difficultySelect = document.getElementById('difficultySelect');
 difficultySelect.value = PUZZLE_SIZE;
 
 imageInput.addEventListener('change', e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(event) {
-        img = new Image();
-        img.src = event.target.result;
+    const files = e.target.files;
+    if (!files.length) return;
+    images = [];
+    for (const file of files) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            images.push(event.target.result);
+            localStorage.setItem('images', JSON.stringify(images));
+        }
+        reader.readAsDataURL(file);
     }
-    reader.readAsDataURL(file);
+    currentImageIndex = 0;
+    localStorage.setItem('currentImageIndex', currentImageIndex);
 });
 
 difficultySelect.addEventListener('change', () => {
@@ -118,13 +124,20 @@ difficultySelect.addEventListener('change', () => {
 });
 
 startButton.addEventListener('click', () => {
-    if (!img) {
-        alert('Please select an image first.');
+    if (!images.length) {
+        alert('Please select at least one image first.');
         return;
     }
-    initPuzzle();
+    loadCurrentImage(initPuzzle);
     startTimer();
 });
+
+function loadCurrentImage(callback) {
+    const imgSrc = images[currentImageIndex];
+    img = new Image();
+    img.onload = callback;
+    img.src = imgSrc;
+}
 
 function initPuzzle() {
     puzzle = [];
@@ -194,10 +207,16 @@ function moveTile(x, y) {
             puzzlesSolved++;
             scoreDisplay.textContent = `Puzzles solved: ${puzzlesSolved}`;
             saveProgress();
-            alert('Puzzle Solved! Starting next puzzle...');
-            initPuzzle();
+            alert('Puzzle Solved! Loading next image...');
+            nextImagePuzzle();
         }
     }
+}
+
+function nextImagePuzzle() {
+    currentImageIndex = (currentImageIndex + 1) % images.length;
+    localStorage.setItem('currentImageIndex', currentImageIndex);
+    loadCurrentImage(initPuzzle);
 }
 
 function swapTiles(pos1, pos2) {
@@ -248,6 +267,8 @@ function saveProgress() {
     localStorage.setItem('carryoverMoves', carryoverMoves);
     localStorage.setItem('puzzlesSolved', puzzlesSolved);
     localStorage.setItem('difficulty', PUZZLE_SIZE);
+    localStorage.setItem('currentImageIndex', currentImageIndex);
+    localStorage.setItem('images', JSON.stringify(images));
 }
 </script>
 
